@@ -346,7 +346,7 @@ void demo()
 }
 
 void loop() {
-  delay(1000);
-  (invState) ? TFTwrite_saCommand(INVON): TFTwrite_saCommand(INVOFF);
-  invState = !invState;
+  // delay(1000);
+  // (invState) ? TFTwrite_saCommand(INVON): TFTwrite_saCommand(INVOFF);
+  // invState = !invState;
 }  
