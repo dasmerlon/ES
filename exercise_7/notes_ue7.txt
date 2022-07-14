@@ -1,0 +1,78 @@
+kein Zugriff auf SD-Device:; SD.begin(SD_CS) schlägt fehl
+
+Aenderungen:
+	-- im Schematic Verbindung von SDA zu MISO über 1k Widerstand gekappt
+
+	-- SD_CS mit HIGH initialisiert, da InitSDCard erst am Ende von Setup ausgeführt wird
+ 
+	-- SD.begin ist erfolgreich, sonst kein Zugriff auf SD; ls funktioniert nicht, auch mein eigenes nicht,
+         "exist" funktioniert manchmal"
+
+	-- OutputFileToSerial --> keine Ausgabe
+              Zeile 732: explizite Konvertierung von int to char --> Bild erschient auf ser. Konsole (ein pixel Verschiebung); 
+              war Glück, weitere kleinere Änderung und wieder geht nichts mehr . . . s.u.
+
+Warnings beseitigt:
+ -- 346    for(int i = 0; i < (int)strlen(c_str); i++)	//explizite Konvertierung
+ -- 556        for (uint16_t i=0; i<(uint16_t)(xe+1-xs)*(uint16_t)(ye+1-ys); i++) {	      //relevant, da Produkt größer als uint8_t werden kann. 
+ -- 913 	 //OutputFileToLCD("tams.img"); durch 	 OutputFileToLCD(input_buffer);    ersetzt
+ -- 960    for(int i = 0; i < (int)strlen(str); i++)		//explizite Konvertierung
+
+	-- sämtlichen Code für TFT aus setup auskommentiert -- keine Änderung
+   	-- Code für SD-Properties auslesen eingebaut -- SD.begin funktioniert wieder nicht mehr 
+
+grummel, grummel; hätte mir auch früher auffallen können: 
+Der Code für die SD-Properties legt noch ein paar Strings für die Textausgabe an; 
+die Strings werden im SRAM abgelegt. 
+Euer Viedobuffer ist 128x40x1B =  5kB und die SD-Library legt auch einen 512 Byte 
+Buffer an und mit dem Rest sind wir dann offensichtlich über den 8kB des Mega . . .
+
+-- Video-Buffer verkleinert, jetzt funktioniert der SD-Zugriff!
+
+	-- bei Eurem "ls" hängt Müll an den Dateinamen
+	-- ebenso wenn ein Dateiname eingegeben wird zur Abfrage, existiert deshalb auch nicht . . .
+
+-- void str_cut(char *str, int begin) kopiert den Null-Char nicht mit;
+   neues str_cut durch einfaches Umbiegen des Pointers eingefügt, spart auch SRAM
+   Dateiname jetzt korrekt, Datei wird gefunden . . .
+-- OutputFileToSerial funktioniert; 1 Pixel offset
+
+-- Display macht Probleme, da ihr die Dimension 128x40 nicht parametrisiert habt und es an
+   allen möglichen Ecken und Kanten hart eincodiert habt. 
+
+-- habs mal für InitDebugScreen() und FillBGColor() eingebaut - funktioniert
+ 
+
+Jetzt müssten noch die kleinen Fehler, z.B. bei ls,  beseitigt werden und die
+Arraydimension durchgehend (am Besten vollständig parametrisierbar, ist bei 
+meinen beiden Funktionen auch nur ansatzweise umgesetzt) angepasst werden.
+
+write Image Problem:
+    --  ClearBuffer() angepasst
+* es wird anstelle der hardcodierten Farbe weiß nur der alte Hintergrund (blau) angezeigt
+    -- in  TransferBuffer   for (uint8_t x = 0; x < y_offset + rows_to_transfer; x++) übertragt
+       Ihr y_offset zuviele pixel und überschreibt damit die zu Beginn übertragenen; 
+       
+       geändert auf     for (uint8_t x = 0; x < rows_to_transfer; x++) 
+       jetzt erscheint die hardcodierten Farbe weiß;
+       bei der Übertragung ganzer Zeilen, z.B. InitDebugScreen fiel das nicht auf, 
+       da das WriteWindow einfach neu überschreiben wurde . . .
+
+       Jetzt erscheint in dem quadratischen Ausschnitt auch ein wildes Pixelmuster . . .
+       hier muss jetzt noch nachgebessert werden. 
+
+* Die Textausgabe auf dem TFT stirbt jetzt allerdings . . .
+    -- Ihr habt ein Array für den einzulesenden Text definiert:    char text[16];
+         der Text kann aber länger sein und Ihr überprüft es nicht; also schreibt 
+         Ihr über das Array hinaus 
+
+       Überprüfung eingbaut; jetzt sollte eine Zeile ausgegeben werden, allerdings
+       greift sich TransferBuffer in printString einen leeren Bereich des Buffers;
+        
+       PrintChar und WriteBuffer treffen sich nicht . . . einfach mal random auf
+        PrintString(0, 12, text, bgColor, fgColor); geändert und es erscheint
+        zumindest Text auf dem Display . . .
+
+Ich hoffe, Ihr habt jetzt eine Basis zum Weitermachen. 
+
+
